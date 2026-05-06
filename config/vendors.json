@@ -1,0 +1,102 @@
+{
+  "email_to_category": {
+    "catering": "catering",
+    "transportation": "transportation",
+    "events": "events"
+  },
+  "categories": {
+    "catering": {
+      "label": "F&B Catering",
+      "vendors": [
+        {
+          "id": "kg_catering",
+          "name": "KG Catering Pte Ltd",
+          "keywords": ["kg catering", "kg", "k g catering"],
+          "persona_file": "personas/catering/kg_catering.txt"
+        },
+        {
+          "id": "rilassi",
+          "name": "Rilassi Catering Pte Ltd",
+          "keywords": ["rilassi"],
+          "persona_file": "personas/catering/rilassi_catering.txt"
+        },
+        {
+          "id": "canadian_pizza",
+          "name": "Canadian Pizza",
+          "keywords": ["canadian pizza", "canadian"],
+          "persona_file": "personas/catering/canadian_pizza.txt"
+        }
+      ]
+    },
+    "transportation": {
+      "label": "Bus Transportation",
+      "vendors": [
+        {
+          "id": "comfortdelgro",
+          "name": "ComfortDelGro Bus Pte Ltd",
+          "keywords": ["comfortdelgro", "comfort delgro", "cdg"],
+          "persona_file": "personas/transportation/comfortdelgro.txt"
+        },
+        {
+          "id": "hou_lee",
+          "name": "Hou Lee Bus Transport Service",
+          "keywords": ["hou lee", "houlee"],
+          "persona_file": "personas/transportation/hou_lee.txt"
+        },
+        {
+          "id": "st_lee",
+          "name": "ST Lee Transport Pte Ltd",
+          "keywords": ["st lee", "stlee"],
+          "persona_file": "personas/transportation/st_lee.txt"
+        }
+      ]
+    },
+    "events": {
+      "label": "Events",
+      "vendors": [
+        {
+          "id": "selfiebox",
+          "name": "Selfiebox Pte Ltd",
+          "keywords": ["selfiebox", "selfie box", "photobooth", "photo booth"],
+          "persona_file": "personas/events/selfiebox.txt"
+        },
+        {
+          "id": "partymojo",
+          "name": "PartyMojo Pte Ltd",
+          "keywords": ["partymojo", "party mojo", "ice cream cart", "popcorn", "candy floss"],
+          "persona_file": "personas/events/partymojo.txt"
+        },
+        {
+          "id": "tagtical",
+          "name": "Tagtical Pte Ltd",
+          "keywords": ["tagtical", "laser tag"],
+          "persona_file": "personas/events/tagtical.txt"
+        },
+        {
+          "id": "rave_productions",
+          "name": "Rave Productions",
+          "keywords": ["rave productions", "rave", "led floor", "interactive led", "live scoring"],
+          "persona_file": "personas/events/rave_productions.txt"
+        },
+        {
+          "id": "j2_terrarium",
+          "name": "J2 Terrarium",
+          "keywords": ["j2 terrarium", "j2", "terrarium"],
+          "persona_file": "personas/events/j2_terrarium.txt"
+        },
+        {
+          "id": "party_rental_sg",
+          "name": "Party Rental SG LLP",
+          "keywords": ["party rental", "party rental sg", "smoke machine", "laser projector"],
+          "persona_file": "personas/events/party_rental_sg.txt"
+        },
+        {
+          "id": "adpeak",
+          "name": "ADPEAK Pte Ltd",
+          "keywords": ["adpeak", "hiking", "hiking program"],
+          "persona_file": "personas/events/adpeak.txt"
+        }
+      ]
+    }
+  }
+}
