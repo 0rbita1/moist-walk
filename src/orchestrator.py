@@ -33,25 +33,13 @@ def process_eml(eml_path: Path):
     print(f"  Body preview: {email_data['body'][:120].strip()!r}")
 
     # 2. Route to category + vendor
-    route = route_email(
-        to_address=email_data["to"],
-        subject=email_data["subject"],
-        body=email_data["body"]
-    )
+    route = route_email(to_address=email_data["to"])
 
     print(f"\n  📂 Category : {route['category_label'] or 'UNKNOWN'}")
 
     if route["confidence"] == "unrouted":
         print("  ⚠️  Could not determine vendor category from To: address.")
         _write_error_md(eml_path, email_data, "Unrouted: No category detected from To: address.")
-        return
-
-    if route["confidence"] == "low":
-        print(f"  ⚠️  No specific vendor matched in category '{route['category']}'.")
-        _write_error_md(
-            eml_path, email_data,
-            f"Category '{route['category_label']}' detected but no vendor keyword matched."
-        )
         return
 
     vendor = route["vendor"]
@@ -77,6 +65,18 @@ def process_eml(eml_path: Path):
 
     # 5. Extract response + optional PDF data
     clean_response, pdf_data = extract_pdf_data(ai_raw)
+    if not pdf_data:
+        pdf_data = {
+            "document_type": "Quote",
+            "client_name": email_data["from_name"] or email_data["from"],
+            "event_date": "TBC",
+            "items": [],
+            "subtotal": 0,
+            "tax_rate": 0.09,
+            "tax_amount": 0,
+            "grand_total": 0,
+            "notes": clean_response,
+        }
 
     # 6. Prepare output paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -103,17 +103,14 @@ def process_eml(eml_path: Path):
         f"",
         clean_response,
     ]
-    if pdf_data:
-        md_lines += ["", "---", "", "> 📄 A PDF document was generated alongside this response."]
-    md_path.write_text("\n".join(md_lines))
+    md_lines += ["", "---", "", "> 📄 A PDF document was generated alongside this response."]
+    md_path.write_text("\n".join(md_lines), encoding="utf-8")
     print(f"  ✅ Markdown : {md_path.name}")
 
-    # 8. Generate PDF if needed
-    pdf_path = None
-    if pdf_data:
-        pdf_path = OUTPUT_DIR / f"{stem}_{timestamp}.pdf"
-        generate_quote_pdf(pdf_data, str(pdf_path))
-
+    # 8. Generate PDF for every model reply
+    pdf_path = OUTPUT_DIR / f"{stem}_{timestamp}.pdf"
+    generate_quote_pdf(pdf_data, str(pdf_path), vendor_id=vendor["id"])
+        
     # 9. Send reply email back to the original participant
     print("  📤 Sending reply...")
     send_reply(
@@ -122,7 +119,8 @@ def process_eml(eml_path: Path):
         subject     = email_data["subject"],
         body_text   = clean_response,
         vendor_name = vendor["name"],
-        pdf_path    = str(pdf_path) if pdf_path else None,
+        reply_to    = email_data["to"],
+        pdf_path    = str(pdf_path),
     )
 
     print(f"\n  ✅ Done. Outputs in: {OUTPUT_DIR.relative_to(PROJECT_ROOT)}/")

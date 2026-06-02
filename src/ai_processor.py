@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3"
+MODEL = "qwen2.5"
 
 
 def load_persona(persona_file: str) -> str:

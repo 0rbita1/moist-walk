@@ -27,6 +27,7 @@ def send_reply(
     subject:      str,
     body_text:    str,
     vendor_name:  str,
+    reply_to:     str,
     pdf_path:     str | None = None,
 ):
     """
@@ -45,10 +46,14 @@ def send_reply(
     msg["To"]      = f"{to_name} <{to_address}>" if to_name else to_address
     msg["Subject"] = f"Re: {subject}" if not subject.startswith("Re:") else subject
 
-    # Plain text body
+    msg = MIMEMultipart()
+    msg["From"]     = f"{vendor_name} <{USERNAME}>"
+    msg["To"]       = f"{to_name} <{to_address}>" if to_name else to_address
+    msg["Subject"]  = f"Re: {subject}" if not subject.startswith("Re:") else subject
+    msg["Reply-To"] = reply_to
+
     msg.attach(MIMEText(body_text, "plain", "utf-8"))
 
-    # Attach PDF if provided
     if pdf_path and Path(pdf_path).exists():
         with open(pdf_path, "rb") as f:
             part = MIMEBase("application", "octet-stream")
@@ -59,7 +64,6 @@ def send_reply(
         msg.attach(part)
         print(f"  📎 PDF attached: {filename}")
 
-    # Send via Gmail SMTP
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.ehlo()
@@ -67,6 +71,7 @@ def send_reply(
             server.login(USERNAME, PASSWORD)
             server.sendmail(USERNAME, to_address, msg.as_string())
         print(f"  📤 Reply sent to: {to_address}")
+        print(f"  ↩️  Reply-To set: {reply_to}")
     except Exception as e:
         print(f"  ❌ Failed to send email: {e}")
         raise

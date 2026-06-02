@@ -13,19 +13,28 @@ import imaplib
 import email
 import requests
 from email import policy
+from email.message import Message
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+
+from vendor_router import get_vendor_tags, load_config
 
 load_dotenv()
 
 # --- Config ---
 IMAP_SERVER   = os.getenv("IMAP_SERVER", "outlook.office365.com")
 IMAP_PORT     = int(os.getenv("IMAP_PORT", 993))
-USERNAME      = os.getenv("IMAP_USERNAME")
-PASSWORD      = os.getenv("IMAP_PASSWORD")
+IMAP_USERNAME = os.getenv("IMAP_USERNAME")
+IMAP_PASSWORD = os.getenv("IMAP_PASSWORD")
 
-WATCHED_TAGS  = {"catering", "transportation", "events"}
+if IMAP_USERNAME is None or IMAP_PASSWORD is None:
+    raise RuntimeError("IMAP_USERNAME and IMAP_PASSWORD must be set")
+
+USERNAME: str = IMAP_USERNAME
+PASSWORD: str = IMAP_PASSWORD
+
+WATCHED_TAGS  = set(get_vendor_tags(load_config()))
 POLL_INTERVAL = 30  # seconds
 
 INPUT_DIR     = Path(__file__).parent.parent / "input"
@@ -39,7 +48,7 @@ def warmup_ollama():
     try:
         response = requests.post(
             "http://localhost:11434/api/generate",
-            json={"model": "mistral", "prompt": "Hello", "stream": False},
+            json={"model": "qwen2.5", "prompt": "Hello", "stream": False},
             timeout=300
         )
         if response.status_code == 200:
@@ -72,7 +81,7 @@ def extract_plus_tag(to_header: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
-def is_vendor_email(msg: email.message.Message) -> bool:
+def is_vendor_email(msg: Message) -> bool:
     """
     Check To:, Delivered-To:, and X-Original-To: headers
     since Gmail sometimes stores the plus-address in a different header.
@@ -100,13 +109,13 @@ def connect() -> imaplib.IMAP4_SSL:
     return mail
 
 
-def fetch_vendor_email_ids(mail: imaplib.IMAP4_SSL) -> list[bytes]:
+def fetch_vendor_email_ids(mail: imaplib.IMAP4_SSL) -> list[str]:
     """
     Search directly for emails sent to any of the watched plus-addresses.
     This avoids fetching all unread emails and filtering manually.
     """
     mail.select("INBOX")
-    matching_ids = set()
+    matching_ids: set[str] = set()
 
     for tag in WATCHED_TAGS:
         plus_address = f"{USERNAME.split('@')[0].split('+')[0]}+{tag}@{USERNAME.split('@')[1]}"
@@ -114,24 +123,30 @@ def fetch_vendor_email_ids(mail: imaplib.IMAP4_SSL) -> list[bytes]:
         status, data = mail.search(None, f'TO "{plus_address}"')
         if status == "OK" and data[0]:
             for msg_id in data[0].split():
-                matching_ids.add(msg_id)
+                matching_ids.add(msg_id.decode())
 
     return list(matching_ids)
 
 
-def fetch_message(mail: imaplib.IMAP4_SSL, msg_id: bytes) -> email.message.Message:
+def fetch_message(mail: imaplib.IMAP4_SSL, msg_id: str) -> Message:
     status, data = mail.fetch(msg_id, "(RFC822)")
+    if status != "OK" or not data or not data[0]:
+        raise RuntimeError(f"Failed to fetch message {msg_id}")
+
     raw = data[0][1]
+    if not isinstance(raw, bytes):
+        raise RuntimeError(f"Unexpected message payload for {msg_id}")
+
     return email.message_from_bytes(raw, policy=policy.default)
 
 
-def mark_as_read(mail: imaplib.IMAP4_SSL, msg_id: bytes):
+def mark_as_read(mail: imaplib.IMAP4_SSL, msg_id: str):
     mail.store(msg_id, "+FLAGS", "\\Seen")
 
 
 # ── EML saving ────────────────────────────────────────────────────────────────
 
-def save_as_eml(msg: email.message.Message, raw_bytes: bytes) -> Path:
+def save_as_eml(msg: Message, raw_bytes: bytes) -> Path:
     INPUT_DIR.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_subject = re.sub(r"[^\w\-]", "_", msg.get("Subject", "email"))[:40]
@@ -167,14 +182,20 @@ def run_monitor():
             mail = connect()
             vendor_ids = fetch_vendor_email_ids(mail)
 
-            new_ids = [mid for mid in vendor_ids if mid.decode() not in processed_ids]
+            new_ids = [mid for mid in vendor_ids if mid not in processed_ids]
 
             if new_ids:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] {len(new_ids)} new vendor email(s) found")
 
                 for msg_id in new_ids:
                     status, data = mail.fetch(msg_id, "(RFC822)")
+                    if status != "OK" or not data or not data[0]:
+                        raise RuntimeError(f"Failed to fetch message {msg_id}")
+
                     raw_bytes = data[0][1]
+                    if not isinstance(raw_bytes, bytes):
+                        raise RuntimeError(f"Unexpected message payload for {msg_id}")
+
                     msg = email.message_from_bytes(raw_bytes, policy=policy.default)
 
                     subject = msg.get("Subject", "(No Subject)")
@@ -186,8 +207,8 @@ def run_monitor():
                     move_to_processed(eml_path)
 
                     # Log this ID so we never process it again
-                    processed_ids.add(msg_id.decode())
-                    save_processed_id(msg_id.decode())
+                    processed_ids.add(msg_id)
+                    save_processed_id(msg_id)
 
                     print(f"  ✅ Processed.\n")
             else:
